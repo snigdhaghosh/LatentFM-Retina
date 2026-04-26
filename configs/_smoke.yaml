@@ -1,0 +1,48 @@
+# Internal smoke-test config: runs the full pipeline on a fabricated 12-image
+# mini dataset, with tiny networks. Used by `tests/smoke_e2e.sh`.
+
+common:
+  dataset: isic
+  data_root: data/mini_isic
+  out_dir: outputs/_smoke
+  image_size: 64
+  num_workers: 0
+  seed: 0
+  device: cpu
+
+vae:
+  base_channels: 8
+  channel_mults: [1, 2, 4]
+  num_res_blocks: 1
+  attn_levels: []
+  latent_channels: 3
+  batch_size: 2
+  epochs: 2
+  lr: 1.0e-4
+  kl_weight: 1.0e-6
+  val_every: 1
+  save_every: 1
+  image:
+    kl_weight: 1.0e-6
+  mask:
+    kl_weight: 1.0e-6
+    bce_pos_weight: null
+
+fm:
+  base_channels: 8
+  channel_mults: [1, 2, 4]
+  num_res_blocks: 1
+  attn_levels: [2]
+  time_embed_dim: 32
+  sigma: 0.0
+  batch_size: 2
+  epochs: 2
+  lr: 1.0e-4
+  n_inference_samples: 2
+  n_inference_steps: 4
+  val_every: 1
+  save_every: 1
+
+eval:
+  batch_size: 2
+  save_n: 2

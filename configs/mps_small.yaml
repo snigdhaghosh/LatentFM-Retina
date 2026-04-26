@@ -1,0 +1,52 @@
+# Lightweight preset for Apple Silicon / MPS (or CPU smoke tests).
+# Shrinks resolution, channels, batch size, and epoch count so the full
+# pipeline can run end-to-end during development.
+#
+# Defaults to the ISIC dataset; override `common.dataset` and `common.data_root`
+# to point at DRIVE.
+
+common:
+  dataset: isic
+  data_root: data/ISIC2016
+  out_dir: outputs/mps_small
+  image_size: 128            # latent will be 32 x 32 x 3
+  num_workers: 0
+  seed: 0
+  device: null
+
+vae:
+  base_channels: 32
+  channel_mults: [1, 2, 4]
+  num_res_blocks: 1
+  attn_levels: []
+  latent_channels: 3
+  batch_size: 2
+  epochs: 30
+  lr: 1.0e-4
+  kl_weight: 1.0e-6
+  val_every: 1
+  save_every: 5
+  image:
+    kl_weight: 1.0e-6
+  mask:
+    kl_weight: 1.0e-6
+    bce_pos_weight: null
+
+fm:
+  base_channels: 32
+  channel_mults: [1, 2, 4]
+  num_res_blocks: 1
+  attn_levels: [2]
+  time_embed_dim: 128
+  sigma: 0.0
+  batch_size: 2
+  epochs: 30
+  lr: 1.0e-4
+  n_inference_samples: 3
+  n_inference_steps: 25
+  val_every: 1
+  save_every: 5
+
+eval:
+  batch_size: 2
+  save_n: 4

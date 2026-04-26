@@ -1,0 +1,46 @@
+common:
+  dataset: drive
+  data_root: data/DRIVE
+  out_dir: outputs/drive
+  image_size: 256
+  num_workers: 0
+  seed: 0
+  device: null
+
+vae:
+  base_channels: 64
+  channel_mults: [1, 2, 4]
+  num_res_blocks: 2
+  attn_levels: [2]
+  latent_channels: 3
+  batch_size: 4
+  epochs: 400      # DRIVE is small; we train longer
+  lr: 1.0e-5
+  kl_weight: 1.0e-6
+  val_every: 10
+  save_every: 25
+  image:
+    kl_weight: 1.0e-6
+  mask:
+    # DRIVE vessels are sparse; up-weight the positive class for the mask VAE.
+    kl_weight: 1.0e-6
+    bce_pos_weight: 8.0
+
+fm:
+  base_channels: 64
+  channel_mults: [1, 2, 2, 4]
+  num_res_blocks: 2
+  attn_levels: [2, 3]
+  time_embed_dim: 256
+  sigma: 0.0
+  batch_size: 4
+  epochs: 400
+  lr: 1.0e-5
+  n_inference_samples: 5
+  n_inference_steps: 50
+  val_every: 10
+  save_every: 25
+
+eval:
+  batch_size: 4
+  save_n: 20
