@@ -1,2 +1,0 @@
-epoch 0001  train_loss=1.4736  val_dice=0.1879  val_iou=0.1037
-epoch 0002  train_loss=1.3913  val_dice=0.2786  val_iou=0.1619
