@@ -39,13 +39,16 @@ class EvalArgs:
     save_n: int = 16
     num_workers: int = 0
     device: str | None = None
+    split: str = "test"
 
 
-def _build_test(name: str, root: str, image_size: int):
+def _build_eval_dataset(name: str, root: str, image_size: int, split: str):
+    if split not in ("train", "val", "test"):
+        raise ValueError(f"split must be one of train/val/test, got {split!r}")
     if name == "isic":
-        return ISICDataset(root=root, split="test", image_size=image_size)
+        return ISICDataset(root=root, split=split, image_size=image_size)
     if name == "drive":
-        return DRIVEDataset(root=root, split="test", image_size=image_size)
+        return DRIVEDataset(root=root, split=split, image_size=image_size)
     raise ValueError(f"Unknown dataset: {name}")
 
 
@@ -74,7 +77,7 @@ def evaluate(args: EvalArgs) -> dict[str, float]:
     mask_vae = _load_vae(args.mask_vae_ckpt, device)
     unet = _load_unet(args.fm_ckpt, device)
 
-    ds = _build_test(args.dataset, args.data_root, args.image_size)
+    ds = _build_eval_dataset(args.dataset, args.data_root, args.image_size, args.split)
     loader = DataLoader(
         ds, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers
     )
@@ -118,7 +121,7 @@ def evaluate(args: EvalArgs) -> dict[str, float]:
         "n": count,
     }
     summary = (
-        f"Test set ({args.dataset}, n={count}):\n"
+        f"{args.split.capitalize()} set ({args.dataset}, n={count}):\n"
         f"  Dice = {metrics['dice']:.4f}\n"
         f"  IoU  = {metrics['iou']:.4f}\n"
     )

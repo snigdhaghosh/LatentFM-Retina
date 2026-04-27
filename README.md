@@ -50,6 +50,7 @@ python scripts/train_vae_image.py --config configs/isic.yaml
 python scripts/train_vae_mask.py  --config configs/isic.yaml
 python scripts/train_fm.py        --config configs/isic.yaml
 python scripts/evaluate.py        --config configs/isic.yaml
+python scripts/predict.py         --config configs/isic.yaml          # all 379 test images
 python scripts/infer.py           --config configs/isic.yaml \
     --image data/ISIC2016/Test/ISBI2016_ISIC_Part1_Test_Data/ISIC_0000003.jpg \
     --out outputs/isic/infer_demo
@@ -62,17 +63,36 @@ Outputs land under `outputs/isic/`:
 - `checkpoints/vae_image.pt`, `checkpoints/vae_mask.pt`, `checkpoints/fm_unet.pt`
 - `eval/metrics.txt` (Dice / IoU on the test split)
 - `eval/viz/` (per-image: input, ground truth, prediction, N samples, confidence map)
+- `predictions/test/` (one binary mask PNG per input from `predict.py`)
 
 ### DRIVE (retinal vessels)
 
-DRIVE is gated and cannot be downloaded programmatically. Register at [https://drive.grand-challenge.org/](https://drive.grand-challenge.org/), download `DRIVE.zip`, and extract under `data/DRIVE/` so that `data/DRIVE/training/{images,1st_manual}/` and `data/DRIVE/test/{images,1st_manual}/` exist. Then:
+DRIVE is gated and cannot be downloaded programmatically. Register at [https://drive.grand-challenge.org/](https://drive.grand-challenge.org/), download `DRIVE.zip`, and extract under `data/DRIVE/`. The expected layout is:
+
+```
+data/DRIVE/
+  training/
+    images/01_training.tif ... 21_training.tif
+    1st_manual/21_manual1.gif ... 40_manual1.gif
+  test/
+    images/01_test.tif ... 20_test.tif
+    1st_manual/01_manual1.gif ... 20_manual1.gif       # see note below
+```
+
+Heads-up on `test/1st_manual/`: the modern grand-challenge.org distribution **withholds** test annotations (they were the challenge's evaluation-server input). The original Staal et al. distribution shipped them, and they are still mirrored in full elsewhere — e.g. the Kaggle dataset *andrewmvd/drive-digital-retinal-images-for-vessel-extraction* — which you can use to populate `data/DRIVE/test/1st_manual/`. (The `test/mask/` files are field-of-view masks, not vessel ground truth, and cannot substitute.)
+
+If you don't have the test GTs, you can still train end-to-end and evaluate on the held-out val split (5 of the 20 training images):
 
 ```bash
-python scripts/download_drive.py --root data/DRIVE   # verifies layout
+python scripts/download_drive.py --root data/DRIVE   # verifies layout for the splits you have
 python scripts/train_vae_image.py --config configs/drive.yaml
 python scripts/train_vae_mask.py  --config configs/drive.yaml
 python scripts/train_fm.py        --config configs/drive.yaml
-python scripts/evaluate.py        --config configs/drive.yaml
+python scripts/evaluate.py        --config configs/drive.yaml --split val   # or omit --split if you have test GTs
+
+# Predict on every test image (no ground truth required):
+python scripts/predict.py         --config configs/drive.yaml \
+    --input-dir data/DRIVE/test/images --save-confidence --save-overlay
 ```
 
 `configs/drive.yaml` keeps the paper's network configs but trains for more epochs (the dataset is small) and sets a `bce_pos_weight=8.0` for the mask VAE so the thin vessels are not collapsed by the BCE term.
