@@ -4,7 +4,8 @@ __pycache__/
 *.pyo
 .DS_Store
 data/
-outputs/
 *.pt
 *.ckpt
+!outputs/**/*.pt
+!outputs/**/*.ckpt
 .ipynb_checkpoints/

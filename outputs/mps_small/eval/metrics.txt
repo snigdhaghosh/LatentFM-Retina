@@ -1,0 +1,3 @@
+Test set (isic, n=379):
+  Dice = 0.8804
+  IoU  = 0.8015

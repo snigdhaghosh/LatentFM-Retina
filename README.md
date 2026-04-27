@@ -65,7 +65,7 @@ Outputs land under `outputs/isic/`:
 
 ### DRIVE (retinal vessels)
 
-DRIVE is gated and cannot be downloaded programmatically. Register at https://drive.grand-challenge.org/, download `DRIVE.zip`, and extract under `data/DRIVE/` so that `data/DRIVE/training/{images,1st_manual}/` and `data/DRIVE/test/{images,1st_manual}/` exist. Then:
+DRIVE is gated and cannot be downloaded programmatically. Register at [https://drive.grand-challenge.org/](https://drive.grand-challenge.org/), download `DRIVE.zip`, and extract under `data/DRIVE/` so that `data/DRIVE/training/{images,1st_manual}/` and `data/DRIVE/test/{images,1st_manual}/` exist. Then:
 
 ```bash
 python scripts/download_drive.py --root data/DRIVE   # verifies layout
@@ -123,20 +123,22 @@ The smoke run trains tiny networks for 2 epochs each on 64x64 inputs; full pipel
 
 ## Math reference (paper -> code)
 
-| Paper | Code |
-|-------|------|
+
+| Paper                                                          | Code                                 |
+| -------------------------------------------------------------- | ------------------------------------ |
 | Eq. 8 / Eq. 16: linear interpolation `z_t = (1-t) z_0 + t z_S` | `latentfm.flow.matching.interpolate` |
-| Eq. 9 / Eq. 17: target velocity `z_S - z_0` | `latentfm.flow.matching.fm_loss` |
-| Eq. 10 / Eq. 18: MSE flow-matching loss | `latentfm.flow.matching.fm_loss` |
-| Eq. 11-12: ODE integration & multi-sample inference | `latentfm.flow.matching.sample` |
-| Eq. 14-15: VAE ELBO | `latentfm.models.vae.VAE.elbo_loss` |
-| Confidence map = pixel-wise variance | `latentfm.flow.ensemble.aggregate` |
+| Eq. 9 / Eq. 17: target velocity `z_S - z_0`                    | `latentfm.flow.matching.fm_loss`     |
+| Eq. 10 / Eq. 18: MSE flow-matching loss                        | `latentfm.flow.matching.fm_loss`     |
+| Eq. 11-12: ODE integration & multi-sample inference            | `latentfm.flow.matching.sample`      |
+| Eq. 14-15: VAE ELBO                                            | `latentfm.models.vae.VAE.elbo_loss`  |
+| Confidence map = pixel-wise variance                           | `latentfm.flow.ensemble.aggregate`   |
+
 
 ## Notes on retina (DRIVE)
 
 DRIVE vessels are thin and sparse (~10% positive pixels), which biases the binary-mask formulation toward the background class. Two practical knobs:
 
-- **`mask.bce_pos_weight`** in the config: up-weights positive pixels in the mask VAE's reconstruction term.
+- `**mask.bce_pos_weight**` in the config: up-weights positive pixels in the mask VAE's reconstruction term.
 - If thin-vessel collapse persists, switch the mask VAE recon loss to a Dice term in `train_vae.py` (search for `recon_type`); both `bce_l1` and a Dice variant are easy substitutions.
 
 ## Differences from the paper (implementation choices, all flagged)
@@ -157,3 +159,4 @@ DRIVE vessels are thin and sparse (~10% positive pixels), which biases the binar
   year={2025}
 }
 ```
+
