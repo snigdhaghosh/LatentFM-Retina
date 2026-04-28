@@ -18,6 +18,7 @@ def _args_from_cfg(cfg: dict, mode: str) -> VAETrainArgs:
     common = cfg.get("common", {})
     vae_section = cfg.get("vae", {})
     overrides = vae_section.get(mode, {})
+    aug = vae_section.get("augmentation", {})
     return VAETrainArgs(
         mode=mode,
         dataset=common["dataset"],
@@ -34,6 +35,9 @@ def _args_from_cfg(cfg: dict, mode: str) -> VAETrainArgs:
         latent_channels=vae_section.get("latent_channels", 3),
         kl_weight=overrides.get("kl_weight", vae_section.get("kl_weight", 1.0e-6)),
         bce_pos_weight=overrides.get("bce_pos_weight"),
+        recon_type=overrides.get("recon_type", vae_section.get("recon_type")),
+        flip_prob=aug.get("flip_prob", 0.5),
+        rotate_max_deg=aug.get("rotate_max_deg", 15.0),
         val_every=vae_section.get("val_every", 1),
         save_every=vae_section.get("save_every", 5),
         num_workers=common.get("num_workers", 0),

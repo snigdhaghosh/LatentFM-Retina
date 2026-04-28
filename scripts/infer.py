@@ -48,14 +48,21 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--n-samples", type=int, default=None)
     ap.add_argument("--n-steps", type=int, default=None)
+    ap.add_argument("--threshold", type=float, default=None,
+                    help="Binarization threshold on the ensemble mean (default 0.5).")
+    ap.add_argument("--ode-method", choices=["euler", "heun"], default=None,
+                    help="ODE solver for the FM sampler (default 'euler').")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
     common = cfg.get("common", {})
     fm_cfg = cfg.get("fm", {})
+    eval_cfg = cfg.get("eval", {})
     image_size = common.get("image_size", 256)
     n_samples = args.n_samples or fm_cfg.get("n_inference_samples", 5)
     n_steps = args.n_steps or fm_cfg.get("n_inference_steps", 50)
+    threshold = args.threshold if args.threshold is not None else eval_cfg.get("threshold", 0.5)
+    ode_method = args.ode_method or eval_cfg.get("ode_method", "euler")
 
     out_dir = Path(common["out_dir"]) / "checkpoints"
     device = auto_device(common.get("device"))
@@ -68,9 +75,9 @@ def main() -> int:
     t = TF.normalize(t, mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]).unsqueeze(0).to(device)
 
     zX = image_vae.encode(t, sample=False)
-    z_samples = sample(unet, zX, n_samples=n_samples, n_steps=n_steps)
+    z_samples = sample(unet, zX, n_samples=n_samples, n_steps=n_steps, method=ode_method)
     masks = latents_to_masks(mask_vae.decode, z_samples)
-    agg = aggregate(masks)
+    agg = aggregate(masks, threshold=threshold)
 
     args.out.mkdir(parents=True, exist_ok=True)
     save_image(t[0], args.out / "input.png")

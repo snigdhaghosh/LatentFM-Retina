@@ -40,6 +40,8 @@ class EvalArgs:
     num_workers: int = 0
     device: str | None = None
     split: str = "test"
+    threshold: float = 0.5
+    ode_method: str = "euler"
 
 
 def _build_eval_dataset(name: str, root: str, image_size: int, split: str):
@@ -93,9 +95,15 @@ def evaluate(args: EvalArgs) -> dict[str, float]:
         img = batch["image"].to(device)
         mask = batch["mask"].to(device)
         zX = image_vae.encode(img, sample=False)
-        z_samples = sample(unet, zX, n_samples=args.n_samples, n_steps=args.n_steps)
+        z_samples = sample(
+            unet,
+            zX,
+            n_samples=args.n_samples,
+            n_steps=args.n_steps,
+            method=args.ode_method,
+        )
         masks = latents_to_masks(mask_vae.decode, z_samples)
-        agg = aggregate(masks)
+        agg = aggregate(masks, threshold=args.threshold)
 
         d = dice_score(agg.final_mask, mask)
         i = iou_score(agg.final_mask, mask)

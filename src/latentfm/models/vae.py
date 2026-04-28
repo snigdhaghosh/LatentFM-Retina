@@ -162,33 +162,69 @@ class VAE(nn.Module):
         """Eq. 14-15: reconstruction term - KL term, averaged over the batch.
 
         `recon_type`:
-            - 'l1'   image VAE (recon in [-1, 1])
-            - 'l2'   alternative image objective
-            - 'bce_l1' mask VAE: BCE on the [0, 1] view + a small L1 term
+            - 'l1'      image VAE (recon in [-1, 1])
+            - 'l2'      alternative image objective
+            - 'bce_l1'  mask VAE: BCE on the [0, 1] view + a small L1 term
+            - 'dice'    mask VAE: soft-Dice loss on the [0, 1] view (good for sparse
+                        positive classes, e.g. DRIVE vessels; insensitive to class imbalance)
+            - 'dice_bce' mask VAE: 0.5 * dice + 0.5 * (optionally pos-weighted) BCE,
+                         combining region overlap with pixel-level calibration
         """
         if recon_type == "l1":
             l_rec = F.l1_loss(recon, x)
         elif recon_type == "l2":
             l_rec = F.mse_loss(recon, x)
         elif recon_type == "bce_l1":
-            recon01 = (recon + 1.0) / 2.0
-            x01 = (x + 1.0) / 2.0 if x.min() < 0 else x
-            recon01 = recon01.clamp(1e-6, 1 - 1e-6)
-            if bce_pos_weight is not None:
-                pw = torch.tensor(bce_pos_weight, device=recon01.device)
-                l_bce = F.binary_cross_entropy(
-                    recon01, x01, weight=None, reduction="none"
-                )
-                pw_map = torch.where(
-                    x01 > 0.5, torch.full_like(x01, bce_pos_weight), torch.ones_like(x01)
-                )
-                l_bce = (l_bce * pw_map).mean()
-            else:
-                l_bce = F.binary_cross_entropy(recon01, x01)
-            l_rec = l_bce + 0.1 * F.l1_loss(recon01, x01)
+            recon01, x01 = self._mask_to_unit(recon, x)
+            l_rec = self._weighted_bce(recon01, x01, bce_pos_weight) + 0.1 * F.l1_loss(
+                recon01, x01
+            )
+        elif recon_type == "dice":
+            recon01, x01 = self._mask_to_unit(recon, x)
+            l_rec = self._soft_dice_loss(recon01, x01)
+        elif recon_type == "dice_bce":
+            recon01, x01 = self._mask_to_unit(recon, x)
+            l_dice = self._soft_dice_loss(recon01, x01)
+            l_bce = self._weighted_bce(recon01, x01, bce_pos_weight)
+            l_rec = 0.5 * l_dice + 0.5 * l_bce
         else:
             raise ValueError(f"Unknown recon_type: {recon_type}")
 
         l_kl = self.kl_divergence(mu, logvar)
         loss = l_rec + kl_weight * l_kl
         return {"loss": loss, "recon": l_rec, "kl": l_kl}
+
+    @staticmethod
+    def _mask_to_unit(recon: torch.Tensor, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Map a mask-VAE prediction (tanh, [-1, 1]) and target to the [0, 1] view."""
+        recon01 = (recon + 1.0) / 2.0
+        x01 = (x + 1.0) / 2.0 if x.min() < 0 else x
+        recon01 = recon01.clamp(1e-6, 1.0 - 1e-6)
+        return recon01, x01
+
+    @staticmethod
+    def _weighted_bce(
+        recon01: torch.Tensor, x01: torch.Tensor, pos_weight: float | None
+    ) -> torch.Tensor:
+        if pos_weight is None:
+            return F.binary_cross_entropy(recon01, x01)
+        l_bce = F.binary_cross_entropy(recon01, x01, weight=None, reduction="none")
+        pw_map = torch.where(
+            x01 > 0.5, torch.full_like(x01, pos_weight), torch.ones_like(x01)
+        )
+        return (l_bce * pw_map).mean()
+
+    @staticmethod
+    def _soft_dice_loss(
+        recon01: torch.Tensor, x01: torch.Tensor, smooth: float = 1.0
+    ) -> torch.Tensor:
+        """Soft-Dice loss: 1 - 2 * sum(p*t) / (sum(p) + sum(t)), with smoothing.
+
+        Reduces over channel/H/W per sample, averages over batch. Insensitive to
+        class imbalance, which is the main reason it outperforms BCE on DRIVE.
+        """
+        dims = tuple(range(1, recon01.dim()))
+        inter = (recon01 * x01).sum(dim=dims)
+        denom = recon01.sum(dim=dims) + x01.sum(dim=dims)
+        dice = (2.0 * inter + smooth) / (denom + smooth)
+        return (1.0 - dice).mean()

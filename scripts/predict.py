@@ -60,6 +60,8 @@ def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> PredictArgs:
         input_dir=str(ns.input_dir) if ns.input_dir is not None else None,
         save_confidence=ns.save_confidence,
         save_overlay=ns.save_overlay,
+        threshold=ns.threshold if ns.threshold is not None else eval_section.get("threshold", 0.5),
+        ode_method=ns.ode_method or eval_section.get("ode_method", "euler"),
     )
 
 
@@ -96,6 +98,19 @@ def main() -> int:
                     help="Also write per-image variance-based confidence heatmaps.")
     ap.add_argument("--save-overlay", action="store_true",
                     help="Also write per-image overlay PNGs (mask blended onto input).")
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Binarization threshold on the ensemble mean (default 0.5; "
+             "lower values recover thin/sparse classes like DRIVE vessels).",
+    )
+    ap.add_argument(
+        "--ode-method",
+        choices=["euler", "heun"],
+        default=None,
+        help="ODE solver for the FM sampler. 'heun' is 2nd-order; default 'euler'.",
+    )
     ns = ap.parse_args()
 
     cfg = load_config(ns.config)

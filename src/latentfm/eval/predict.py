@@ -51,6 +51,8 @@ class PredictArgs:
     input_dir: str | None = None
     save_confidence: bool = False
     save_overlay: bool = False
+    threshold: float = 0.5
+    ode_method: str = "euler"
 
 
 class _FolderDataset(Dataset):
@@ -161,9 +163,15 @@ def predict(args: PredictArgs) -> int:
     for batch in tqdm(loader, desc="[predict]"):
         img = batch["image"].to(device)
         zX = image_vae.encode(img, sample=False)
-        z_samples = sample(unet, zX, n_samples=args.n_samples, n_steps=args.n_steps)
+        z_samples = sample(
+            unet,
+            zX,
+            n_samples=args.n_samples,
+            n_steps=args.n_steps,
+            method=args.ode_method,
+        )
         masks = latents_to_masks(mask_vae.decode, z_samples)
-        agg = aggregate(masks)
+        agg = aggregate(masks, threshold=args.threshold)
 
         for b in range(img.size(0)):
             stem = Path(batch["image_path"][b]).stem

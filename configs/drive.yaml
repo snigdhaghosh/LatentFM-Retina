@@ -14,17 +14,23 @@ vae:
   attn_levels: [2]
   latent_channels: 3
   batch_size: 4
-  epochs: 400      # DRIVE is small; we train longer
-  lr: 1.0e-5
+  epochs: 800      # DRIVE is small; we train longer (was 400)
+  lr: 5.0e-5       # was 1e-5; 1e-5 was too conservative for 15 train images
   kl_weight: 1.0e-6
   val_every: 10
   save_every: 25
   image:
     kl_weight: 1.0e-6
   mask:
-    # DRIVE vessels are sparse; up-weight the positive class for the mask VAE.
+    # DRIVE vessels are sparse. Soft-Dice handles the imbalance natively, so
+    # we no longer rely on a bce_pos_weight knob; it stays as a fallback if
+    # someone switches recon_type back to bce_l1.
     kl_weight: 1.0e-6
-    bce_pos_weight: 8.0
+    bce_pos_weight: 12.0
+    recon_type: dice
+  augmentation:
+    flip_prob: 0.5
+    rotate_max_deg: 30   # was 15
 
 fm:
   base_channels: 64
@@ -34,8 +40,8 @@ fm:
   time_embed_dim: 256
   sigma: 0.0
   batch_size: 4
-  epochs: 400
-  lr: 1.0e-5
+  epochs: 800           # was 400
+  lr: 5.0e-5            # was 1e-5
   n_inference_samples: 5
   n_inference_steps: 50
   val_every: 10
@@ -44,3 +50,5 @@ fm:
 eval:
   batch_size: 4
   save_n: 20
+  threshold: 0.35       # DRIVE-friendly default (sparse positives)
+  ode_method: heun

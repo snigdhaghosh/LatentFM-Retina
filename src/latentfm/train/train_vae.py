@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from ..data.isic import ISICDataset
 from ..data.drive import DRIVEDataset
+from ..data.transforms import build_eval_transform, build_train_transform
 from ..eval.metrics import psnr_score, ssim_score, dice_score, iou_score
 from ..models.vae import VAE, VAEConfig
 from ..utils.device import auto_device
@@ -43,6 +44,9 @@ class VAETrainArgs:
     latent_channels: int = 3
     kl_weight: float = 1.0e-6
     bce_pos_weight: float | None = None
+    recon_type: str | None = None
+    flip_prob: float = 0.5
+    rotate_max_deg: float = 15.0
     val_every: int = 1
     save_every: int = 5
     num_workers: int = 0
@@ -50,11 +54,23 @@ class VAETrainArgs:
     device: str | None = None
 
 
-def _build_dataset(name: str, root: str, split: str, image_size: int):
+def _build_dataset(
+    name: str,
+    root: str,
+    split: str,
+    image_size: int,
+    flip_prob: float = 0.5,
+    rotate_max_deg: float = 15.0,
+):
+    transform = (
+        build_train_transform(image_size, flip_prob=flip_prob, rotate_max_deg=rotate_max_deg)
+        if split == "train"
+        else build_eval_transform(image_size)
+    )
     if name == "isic":
-        return ISICDataset(root=root, split=split, image_size=image_size)
+        return ISICDataset(root=root, split=split, image_size=image_size, transform=transform)
     if name == "drive":
-        return DRIVEDataset(root=root, split=split, image_size=image_size)
+        return DRIVEDataset(root=root, split=split, image_size=image_size, transform=transform)
     raise ValueError(f"Unknown dataset: {name}")
 
 
@@ -84,7 +100,14 @@ def train(args: VAETrainArgs) -> Path:
     model = VAE(cfg).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999))
 
-    train_ds = _build_dataset(args.dataset, args.data_root, "train", args.image_size)
+    train_ds = _build_dataset(
+        args.dataset,
+        args.data_root,
+        "train",
+        args.image_size,
+        flip_prob=args.flip_prob,
+        rotate_max_deg=args.rotate_max_deg,
+    )
     val_ds = _build_dataset(args.dataset, args.data_root, "val", args.image_size)
     train_loader = DataLoader(
         train_ds,
@@ -107,7 +130,8 @@ def train(args: VAETrainArgs) -> Path:
     log_path = out_dir / f"vae_{args.mode}_log.txt"
     log_f = log_path.open("a")
 
-    recon_type = "l1" if args.mode == "image" else "bce_l1"
+    default_recon = "l1" if args.mode == "image" else "bce_l1"
+    recon_type = args.recon_type or default_recon
 
     best_metric = -float("inf")
     for epoch in range(1, args.epochs + 1):

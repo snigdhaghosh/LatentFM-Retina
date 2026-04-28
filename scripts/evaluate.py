@@ -15,13 +15,13 @@ from latentfm.eval.evaluate import EvalArgs, evaluate
 from latentfm.utils.config import load_config
 
 
-def _args_from_cfg(cfg: dict, split: str) -> EvalArgs:
+def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> EvalArgs:
     common = cfg.get("common", {})
     fm = cfg.get("fm", {})
     eval_section = cfg.get("eval", {})
     out_dir = Path(common["out_dir"])
     ckpt_dir = out_dir / "checkpoints"
-    eval_subdir = "eval" if split == "test" else f"eval_{split}"
+    eval_subdir = "eval" if ns.split == "test" else f"eval_{ns.split}"
     return EvalArgs(
         dataset=common["dataset"],
         data_root=common["data_root"],
@@ -31,12 +31,14 @@ def _args_from_cfg(cfg: dict, split: str) -> EvalArgs:
         fm_ckpt=str(ckpt_dir / "fm_unet.pt"),
         image_size=common.get("image_size", 256),
         batch_size=eval_section.get("batch_size", 4),
-        n_samples=fm.get("n_inference_samples", 5),
-        n_steps=fm.get("n_inference_steps", 50),
+        n_samples=ns.n_samples or fm.get("n_inference_samples", 5),
+        n_steps=ns.n_steps or fm.get("n_inference_steps", 50),
         save_n=eval_section.get("save_n", 16),
         num_workers=common.get("num_workers", 0),
         device=common.get("device"),
-        split=split,
+        split=ns.split,
+        threshold=ns.threshold if ns.threshold is not None else eval_section.get("threshold", 0.5),
+        ode_method=ns.ode_method or eval_section.get("ode_method", "euler"),
     )
 
 
@@ -49,9 +51,26 @@ def main() -> int:
         default="test",
         help="Which split to evaluate on. Use 'val' if test ground truth is unavailable.",
     )
+    ap.add_argument("--n-samples", type=int, default=None,
+                    help="Override fm.n_inference_samples from config.")
+    ap.add_argument("--n-steps", type=int, default=None,
+                    help="Override fm.n_inference_steps from config.")
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Binarization threshold on the ensemble mean (default 0.5; "
+             "lower values recover thin/sparse classes like DRIVE vessels).",
+    )
+    ap.add_argument(
+        "--ode-method",
+        choices=["euler", "heun"],
+        default=None,
+        help="ODE solver for the FM sampler. 'heun' is 2nd-order; default 'euler'.",
+    )
     args = ap.parse_args()
     cfg = load_config(args.config)
-    evaluate(_args_from_cfg(cfg, args.split))
+    evaluate(_args_from_cfg(cfg, args))
     return 0
 
 

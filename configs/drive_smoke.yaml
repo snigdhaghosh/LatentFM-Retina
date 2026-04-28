@@ -1,0 +1,18 @@
+# Smoke-test overlay for DRIVE: same architecture and loss/aug/lr changes as
+# `configs/drive.yaml`, but only 60 epochs per network so we can verify the
+# trajectory looks healthier than the previous baseline before committing
+# hours to the full 800-epoch retrain.
+_base_: drive.yaml
+
+common:
+  out_dir: outputs/drive_smoke
+
+vae:
+  epochs: 60
+  val_every: 5
+  save_every: 10
+
+fm:
+  epochs: 60
+  val_every: 5
+  save_every: 10

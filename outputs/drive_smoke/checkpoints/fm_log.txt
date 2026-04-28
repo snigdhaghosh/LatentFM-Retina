@@ -1,0 +1,12 @@
+epoch 0005  train_loss=1.7026  val_dice=0.0448  val_iou=0.0230
+epoch 0010  train_loss=1.6076  val_dice=0.0451  val_iou=0.0231
+epoch 0015  train_loss=1.5220  val_dice=0.0424  val_iou=0.0217
+epoch 0020  train_loss=1.4978  val_dice=0.0484  val_iou=0.0248
+epoch 0025  train_loss=1.4032  val_dice=0.0390  val_iou=0.0199
+epoch 0030  train_loss=1.3576  val_dice=0.0292  val_iou=0.0148
+epoch 0035  train_loss=1.3656  val_dice=0.0344  val_iou=0.0175
+epoch 0040  train_loss=1.2928  val_dice=0.0457  val_iou=0.0234
+epoch 0045  train_loss=1.2306  val_dice=0.0465  val_iou=0.0238
+epoch 0050  train_loss=1.1967  val_dice=0.0580  val_iou=0.0299
+epoch 0055  train_loss=1.1839  val_dice=0.0403  val_iou=0.0206
+epoch 0060  train_loss=1.1374  val_dice=0.0405  val_iou=0.0207

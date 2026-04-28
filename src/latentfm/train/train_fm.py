@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 from ..data.isic import ISICDataset
 from ..data.drive import DRIVEDataset
+from ..data.transforms import build_eval_transform, build_train_transform
 from ..eval.metrics import dice_score, iou_score
 from ..flow.matching import fm_loss, sample
 from ..flow.ensemble import aggregate, latents_to_masks
@@ -47,6 +48,8 @@ class FMTrainArgs:
     sigma: float = 0.0
     n_inference_samples: int = 5
     n_inference_steps: int = 50
+    flip_prob: float = 0.5
+    rotate_max_deg: float = 15.0
     val_every: int = 5
     save_every: int = 5
     num_workers: int = 0
@@ -54,11 +57,23 @@ class FMTrainArgs:
     device: str | None = None
 
 
-def _build_dataset(name: str, root: str, split: str, image_size: int):
+def _build_dataset(
+    name: str,
+    root: str,
+    split: str,
+    image_size: int,
+    flip_prob: float = 0.5,
+    rotate_max_deg: float = 15.0,
+):
+    transform = (
+        build_train_transform(image_size, flip_prob=flip_prob, rotate_max_deg=rotate_max_deg)
+        if split == "train"
+        else build_eval_transform(image_size)
+    )
     if name == "isic":
-        return ISICDataset(root=root, split=split, image_size=image_size)
+        return ISICDataset(root=root, split=split, image_size=image_size, transform=transform)
     if name == "drive":
-        return DRIVEDataset(root=root, split=split, image_size=image_size)
+        return DRIVEDataset(root=root, split=split, image_size=image_size, transform=transform)
     raise ValueError(f"Unknown dataset: {name}")
 
 
@@ -94,7 +109,14 @@ def train(args: FMTrainArgs) -> Path:
     unet = FMUNet(cfg).to(device)
     optimizer = optim.Adam(unet.parameters(), lr=args.lr, betas=(0.9, 0.999))
 
-    train_ds = _build_dataset(args.dataset, args.data_root, "train", args.image_size)
+    train_ds = _build_dataset(
+        args.dataset,
+        args.data_root,
+        "train",
+        args.image_size,
+        flip_prob=args.flip_prob,
+        rotate_max_deg=args.rotate_max_deg,
+    )
     val_ds = _build_dataset(args.dataset, args.data_root, "val", args.image_size)
     train_loader = DataLoader(
         train_ds,

@@ -20,6 +20,8 @@ from latentfm.utils.config import load_config
 def _args_from_cfg(cfg: dict) -> FMTrainArgs:
     common = cfg.get("common", {})
     fm = cfg.get("fm", {})
+    vae = cfg.get("vae", {})
+    aug = fm.get("augmentation", vae.get("augmentation", {}))
     out_dir = Path(common["out_dir"]) / "checkpoints"
     return FMTrainArgs(
         dataset=common["dataset"],
@@ -39,6 +41,8 @@ def _args_from_cfg(cfg: dict) -> FMTrainArgs:
         sigma=fm.get("sigma", 0.0),
         n_inference_samples=fm.get("n_inference_samples", 5),
         n_inference_steps=fm.get("n_inference_steps", 50),
+        flip_prob=aug.get("flip_prob", 0.5),
+        rotate_max_deg=aug.get("rotate_max_deg", 15.0),
         val_every=fm.get("val_every", 5),
         save_every=fm.get("save_every", 5),
         num_workers=common.get("num_workers", 0),
