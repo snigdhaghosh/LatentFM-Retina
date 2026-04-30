@@ -9,3 +9,4 @@ data/
 !outputs/**/*.pt
 !outputs/**/*.ckpt
 .ipynb_checkpoints/
+.vscode/
