@@ -22,6 +22,12 @@ def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> EvalArgs:
     out_dir = Path(common["out_dir"])
     ckpt_dir = out_dir / "checkpoints"
     eval_subdir = "eval" if ns.split == "test" else f"eval_{ns.split}"
+    # When patch training is on (`common.train_resize` set), match the eval
+    # input scale to the training resize so the model sees the same vessel
+    # detail it was trained on. The model is fully convolutional and handles
+    # the larger spatial size. CLI `--image-size` overrides everything.
+    cfg_image_size = common.get("train_resize") or common.get("image_size", 256)
+    image_size = ns.image_size or cfg_image_size
     return EvalArgs(
         dataset=common["dataset"],
         data_root=common["data_root"],
@@ -29,7 +35,7 @@ def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> EvalArgs:
         image_vae_ckpt=str(ckpt_dir / "vae_image.pt"),
         mask_vae_ckpt=str(ckpt_dir / "vae_mask.pt"),
         fm_ckpt=str(ckpt_dir / "fm_unet.pt"),
-        image_size=common.get("image_size", 256),
+        image_size=image_size,
         batch_size=eval_section.get("batch_size", 4),
         n_samples=ns.n_samples or fm.get("n_inference_samples", 5),
         n_steps=ns.n_steps or fm.get("n_inference_steps", 50),
@@ -55,6 +61,14 @@ def main() -> int:
                     help="Override fm.n_inference_samples from config.")
     ap.add_argument("--n-steps", type=int, default=None,
                     help="Override fm.n_inference_steps from config.")
+    ap.add_argument(
+        "--image-size",
+        type=int,
+        default=None,
+        help="Override the eval input size. Defaults to `common.train_resize` "
+             "when set, else `common.image_size`. Useful for A/B comparing "
+             "patch training (eval at train_resize) vs the legacy 256 eval.",
+    )
     ap.add_argument(
         "--threshold",
         type=float,

@@ -3,6 +3,11 @@ common:
   data_root: data/DRIVE
   out_dir: outputs/drive
   image_size: 256
+  # Step 1 (patch-based augmentation): training images are first resized to
+  # this size (preserves more vessel detail than image_size=256) and then a
+  # random `image_size` window is cropped at every training step. Eval still
+  # runs at image_size. Set to null to revert to the old behavior.
+  train_resize: 384
   num_workers: 0
   seed: 0
   device: null

@@ -38,6 +38,7 @@ def _args_from_cfg(cfg: dict, mode: str) -> VAETrainArgs:
         recon_type=overrides.get("recon_type", vae_section.get("recon_type")),
         flip_prob=aug.get("flip_prob", 0.5),
         rotate_max_deg=aug.get("rotate_max_deg", 15.0),
+        train_resize=common.get("train_resize"),
         val_every=vae_section.get("val_every", 1),
         save_every=vae_section.get("save_every", 5),
         num_workers=common.get("num_workers", 0),

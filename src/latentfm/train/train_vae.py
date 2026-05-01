@@ -47,6 +47,7 @@ class VAETrainArgs:
     recon_type: str | None = None
     flip_prob: float = 0.5
     rotate_max_deg: float = 15.0
+    train_resize: int | None = None
     val_every: int = 1
     save_every: int = 5
     num_workers: int = 0
@@ -61,9 +62,15 @@ def _build_dataset(
     image_size: int,
     flip_prob: float = 0.5,
     rotate_max_deg: float = 15.0,
+    train_resize: int | None = None,
 ):
     transform = (
-        build_train_transform(image_size, flip_prob=flip_prob, rotate_max_deg=rotate_max_deg)
+        build_train_transform(
+            image_size,
+            flip_prob=flip_prob,
+            rotate_max_deg=rotate_max_deg,
+            train_resize=train_resize,
+        )
         if split == "train"
         else build_eval_transform(image_size)
     )
@@ -107,6 +114,7 @@ def train(args: VAETrainArgs) -> Path:
         args.image_size,
         flip_prob=args.flip_prob,
         rotate_max_deg=args.rotate_max_deg,
+        train_resize=args.train_resize,
     )
     val_ds = _build_dataset(args.dataset, args.data_root, "val", args.image_size)
     train_loader = DataLoader(

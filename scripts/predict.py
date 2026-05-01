@@ -43,6 +43,11 @@ def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> PredictArgs:
         sub = ns.split
     default_pred_dir = out_dir / "predictions" / sub
 
+    # Match the eval input scale to training when patch training is on. CLI
+    # `--image-size` overrides.
+    cfg_image_size = common.get("train_resize") or common.get("image_size", 256)
+    image_size = ns.image_size or cfg_image_size
+
     return PredictArgs(
         dataset=common["dataset"],
         data_root=common["data_root"],
@@ -50,7 +55,7 @@ def _args_from_cfg(cfg: dict, ns: argparse.Namespace) -> PredictArgs:
         image_vae_ckpt=str(ckpt_dir / "vae_image.pt"),
         mask_vae_ckpt=str(ckpt_dir / "vae_mask.pt"),
         fm_ckpt=str(ckpt_dir / "fm_unet.pt"),
-        image_size=common.get("image_size", 256),
+        image_size=image_size,
         batch_size=ns.batch_size or eval_section.get("batch_size", 4),
         n_samples=ns.n_samples or fm.get("n_inference_samples", 5),
         n_steps=ns.n_steps or fm.get("n_inference_steps", 50),
@@ -94,6 +99,13 @@ def main() -> int:
                     help="Override fm.n_inference_steps from config.")
     ap.add_argument("--batch-size", type=int, default=None,
                     help="Override eval.batch_size from config.")
+    ap.add_argument(
+        "--image-size",
+        type=int,
+        default=None,
+        help="Override the predict input size. Defaults to `common.train_resize` "
+             "when set, else `common.image_size`.",
+    )
     ap.add_argument("--save-confidence", action="store_true",
                     help="Also write per-image variance-based confidence heatmaps.")
     ap.add_argument("--save-overlay", action="store_true",

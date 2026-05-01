@@ -1,0 +1,2 @@
+epoch 0010  train_loss=0.4204  val_metric=0.6760
+epoch 0020  train_loss=0.3022  val_metric=0.7815

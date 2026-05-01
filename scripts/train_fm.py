@@ -43,6 +43,7 @@ def _args_from_cfg(cfg: dict) -> FMTrainArgs:
         n_inference_steps=fm.get("n_inference_steps", 50),
         flip_prob=aug.get("flip_prob", 0.5),
         rotate_max_deg=aug.get("rotate_max_deg", 15.0),
+        train_resize=common.get("train_resize"),
         val_every=fm.get("val_every", 5),
         save_every=fm.get("save_every", 5),
         num_workers=common.get("num_workers", 0),
