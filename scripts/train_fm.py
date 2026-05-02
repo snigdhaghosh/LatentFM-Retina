@@ -21,6 +21,7 @@ def _args_from_cfg(cfg: dict) -> FMTrainArgs:
     common = cfg.get("common", {})
     fm = cfg.get("fm", {})
     vae = cfg.get("vae", {})
+    eval_section = cfg.get("eval", {})
     aug = fm.get("augmentation", vae.get("augmentation", {}))
     out_dir = Path(common["out_dir"]) / "checkpoints"
     return FMTrainArgs(
@@ -41,6 +42,12 @@ def _args_from_cfg(cfg: dict) -> FMTrainArgs:
         sigma=fm.get("sigma", 0.0),
         n_inference_samples=fm.get("n_inference_samples", 5),
         n_inference_steps=fm.get("n_inference_steps", 50),
+        # Step 3: align validation with the actual eval pipeline so the saved
+        # checkpoint is selected by the same metric we report.
+        n_validation_samples=fm.get("n_validation_samples"),
+        val_threshold=eval_section.get("threshold", 0.5),
+        val_ode_method=eval_section.get("ode_method", "euler"),
+        ema_decay=fm.get("ema_decay", 0.0),
         flip_prob=aug.get("flip_prob", 0.5),
         rotate_max_deg=aug.get("rotate_max_deg", 15.0),
         train_resize=common.get("train_resize"),

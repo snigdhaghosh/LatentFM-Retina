@@ -47,13 +47,25 @@ fm:
   batch_size: 4
   epochs: 800           # was 400
   lr: 5.0e-5            # was 1e-5
-  n_inference_samples: 5
+  # Step 2: bigger ODE ensemble. Sweep on val showed N=16 buys ~+0.02 Dice
+  # over N=5 with negligible threshold sensitivity. Cost: ~15 min on MPS.
+  n_inference_samples: 16
   n_inference_steps: 50
+  # Step 3: validation knobs. n_validation_samples is the cheaper N used
+  # during training (full N=16 val would balloon training time). val_every
+  # then governs how often we pay that cost.
+  n_validation_samples: 5
+  # Step 3b: EMA decay for inference weights. 0.999 is a standard FM default.
+  # On a tiny dataset like DRIVE, the EMA half-life (~700 updates) is several
+  # hundred epochs, so the EMA effectively averages the late-training plateau.
+  ema_decay: 0.999
   val_every: 10
   save_every: 25
 
 eval:
   batch_size: 4
   save_n: 20
-  threshold: 0.35       # DRIVE-friendly default (sparse positives)
+  # Step 2: best from val sweep at N=16 was thr=0.325 (Dice 0.6565). The
+  # Dice curve is flat between 0.275 and 0.40 so 0.325 is a robust pick.
+  threshold: 0.325
   ode_method: heun

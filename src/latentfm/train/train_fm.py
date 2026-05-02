@@ -27,6 +27,7 @@ from ..flow.ensemble import aggregate, latents_to_masks
 from ..models.unet import FMUNet, FMUNetConfig
 from ..models.vae import VAE, VAEConfig
 from ..utils.device import auto_device
+from ..utils.ema import EMA
 
 
 @dataclass
@@ -48,6 +49,14 @@ class FMTrainArgs:
     sigma: float = 0.0
     n_inference_samples: int = 5
     n_inference_steps: int = 50
+    # Step 3: validation knobs that should match the actual eval pipeline so
+    # the saved "best" checkpoint is selected by the same metric we report.
+    n_validation_samples: int | None = None  # defaults to n_inference_samples
+    val_threshold: float = 0.5               # default preserves legacy behavior
+    val_ode_method: str = "euler"            # default preserves legacy behavior
+    # Step 3b: EMA decay for inference weights. 0.0 disables EMA and falls
+    # back to saving raw weights at the best-val epoch.
+    ema_decay: float = 0.0
     flip_prob: float = 0.5
     rotate_max_deg: float = 15.0
     train_resize: int | None = None
@@ -115,6 +124,8 @@ def train(args: FMTrainArgs) -> Path:
     )
     unet = FMUNet(cfg).to(device)
     optimizer = optim.Adam(unet.parameters(), lr=args.lr, betas=(0.9, 0.999))
+    ema = EMA(unet, decay=args.ema_decay) if args.ema_decay > 0 else None
+    val_n_samples = args.n_validation_samples or args.n_inference_samples
 
     train_ds = _build_dataset(
         args.dataset,
@@ -164,16 +175,30 @@ def train(args: FMTrainArgs) -> Path:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(unet.parameters(), 1.0)
             optimizer.step()
+            if ema is not None:
+                ema.update(unet)
             running += loss.item() * img.size(0)
             n += img.size(0)
         train_loss = running / max(n, 1)
 
         if epoch % args.val_every == 0 or epoch == args.epochs:
-            dice, iou = _validate(
-                unet, image_vae, mask_vae, val_loader, device,
-                n_samples=args.n_inference_samples,
-                n_steps=args.n_inference_steps,
-            )
+            if ema is not None:
+                with ema.average_parameters(unet):
+                    dice, iou = _validate(
+                        unet, image_vae, mask_vae, val_loader, device,
+                        n_samples=val_n_samples,
+                        n_steps=args.n_inference_steps,
+                        threshold=args.val_threshold,
+                        method=args.val_ode_method,
+                    )
+            else:
+                dice, iou = _validate(
+                    unet, image_vae, mask_vae, val_loader, device,
+                    n_samples=val_n_samples,
+                    n_steps=args.n_inference_steps,
+                    threshold=args.val_threshold,
+                    method=args.val_ode_method,
+                )
             line = (
                 f"epoch {epoch:04d}  train_loss={train_loss:.4f}  "
                 f"val_dice={dice:.4f}  val_iou={iou:.4f}"
@@ -183,8 +208,9 @@ def train(args: FMTrainArgs) -> Path:
             log_f.flush()
             if dice > best_metric:
                 best_metric = dice
+                inference_weights = ema.state_dict() if ema is not None else unet.state_dict()
                 torch.save(
-                    {"model": unet.state_dict(), "config": cfg.to_dict()},
+                    {"model": inference_weights, "config": cfg.to_dict()},
                     ckpt_path,
                 )
 
@@ -207,6 +233,8 @@ def _validate(
     device: torch.device,
     n_samples: int,
     n_steps: int,
+    threshold: float = 0.5,
+    method: str = "euler",
 ) -> tuple[float, float]:
     unet.eval()
     dice_total, iou_total, count = 0.0, 0.0, 0
@@ -214,9 +242,9 @@ def _validate(
         img = batch["image"].to(device)
         mask = batch["mask"].to(device)
         zX = image_vae.encode(img, sample=False)
-        z_samples = sample(unet, zX, n_samples=n_samples, n_steps=n_steps)
+        z_samples = sample(unet, zX, n_samples=n_samples, n_steps=n_steps, method=method)
         masks = latents_to_masks(mask_vae.decode, z_samples)
-        agg = aggregate(masks)
+        agg = aggregate(masks, threshold=threshold)
         d = dice_score(agg.final_mask, mask)
         i = iou_score(agg.final_mask, mask)
         dice_total += float(d) * img.size(0)

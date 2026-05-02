@@ -10,3 +10,4 @@ data/
 !outputs/**/*.ckpt
 .ipynb_checkpoints/
 .vscode/
+.cursor/

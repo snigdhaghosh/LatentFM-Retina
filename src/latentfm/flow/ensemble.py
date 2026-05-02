@@ -49,7 +49,16 @@ def latents_to_masks(decoder: torch.nn.Module, latents: torch.Tensor) -> torch.T
         raise ValueError(f"Expected 5D latents [N, B, C, h, w], got {latents.shape}")
     N, B, C, h, w = latents.shape
     flat = latents.reshape(N * B, C, h, w)
-    decoded = decoder(flat)
+    # Mask VAE `AttnBlock` builds a (batch, seq, seq) tensor with seq = h*w on
+    # the deepest feature map. A single forward with batch N*B explodes memory
+    # as O(N*B * (h*w)^2); chunk along the stacked batch (size B) so peak batch
+    # matches per-image training geometry.
+    decode_chunk = B
+    parts: list[torch.Tensor] = []
+    for start in range(0, N * B, decode_chunk):
+        end = min(start + decode_chunk, N * B)
+        parts.append(decoder(flat[start:end]))
+    decoded = torch.cat(parts, dim=0)
     decoded01 = (decoded + 1.0) / 2.0
     return decoded01.reshape(N, B, decoded.shape[1], decoded.shape[2], decoded.shape[3]).clamp(
         0.0, 1.0

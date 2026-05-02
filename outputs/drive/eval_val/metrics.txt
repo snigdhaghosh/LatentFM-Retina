@@ -1,3 +1,3 @@
 Val set (drive, n=5):
-  Dice = 0.6326
-  IoU  = 0.4627
+  Dice = 0.6545
+  IoU  = 0.4864
