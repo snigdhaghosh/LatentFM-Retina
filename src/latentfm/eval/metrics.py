@@ -44,6 +44,58 @@ def iou_score(
     return iou.mean()
 
 
+def confusion_counts(
+    pred: torch.Tensor, target: torch.Tensor, threshold: float = 0.5
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return TP/TN/FP/FN counts for binary masks at a threshold."""
+    p = _binarize(pred, threshold).flatten()
+    t = _binarize(target, threshold).flatten()
+    tp = ((p == 1) & (t == 1)).sum()
+    tn = ((p == 0) & (t == 0)).sum()
+    fp = ((p == 1) & (t == 0)).sum()
+    fn = ((p == 0) & (t == 1)).sum()
+    return tp, tn, fp, fn
+
+
+def accuracy_from_confusion(
+    tp: torch.Tensor, tn: torch.Tensor, fp: torch.Tensor, fn: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    return (tp + tn) / (tp + tn + fp + fn + eps)
+
+
+def precision_from_confusion(
+    tp: torch.Tensor, fp: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    return tp / (tp + fp + eps)
+
+
+def specificity_from_confusion(
+    tn: torch.Tensor, fp: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    return tn / (tn + fp + eps)
+
+
+def sensitivity_from_confusion(
+    tp: torch.Tensor, fn: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    return tp / (tp + fn + eps)
+
+
+def f1_from_confusion(
+    tp: torch.Tensor, fp: torch.Tensor, fn: torch.Tensor, eps: float = 1e-6
+) -> torch.Tensor:
+    return (2.0 * tp) / (2.0 * tp + fp + fn + eps)
+
+
+def auc_roc_score(prob: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """AUROC for binary segmentation from probability map and target mask."""
+    from torchmetrics.functional.classification import binary_auroc
+
+    p = _ensure_unit_range(prob).flatten()
+    t = _binarize(target).flatten().to(torch.int)
+    return binary_auroc(p, t)
+
+
 def _ensure_unit_range(t: torch.Tensor) -> torch.Tensor:
     if t.min() < 0:
         t = (t + 1.0) / 2.0
